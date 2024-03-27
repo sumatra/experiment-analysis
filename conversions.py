@@ -19,7 +19,6 @@ def get_start_time(client):
     if first_time:
         return max(thirty_days_ago, first_time)
 
-
 def get_conversions(client):
     start_time = get_start_time(client)
     if not start_time:
@@ -35,6 +34,8 @@ def get_conversions(client):
                     , assignment['experience']                                           experience
                     , assignment['variant']                                              variant
                     , assignment['experiment']                                           experiment
+                    , try_cast(json_extract(features, '$.landing_page_by_session') as varchar)  landing_page_by_session
+
                from (event_log
                    cross join unnest(try_cast(json_extract(features, '$.optimizations') as array(map(varchar, varchar)))) t (assignment))
                where (event_type = 'page') and event_date >= '{start_date}')
@@ -49,11 +50,12 @@ def get_conversions(client):
         pages.experience              experience,
         pages.experiment              experiment,
         pages.variant                 variant,
+        pages.landing_page_by_session landing_page_by_session,
         count(distinct pages.user_id) user_count,
         count(distinct goals.user_id) converted_user_count
     from (pages
         left join goals on ((pages.user_id = goals.user_id) and (pages.optimization = goals.optimization) and (goals.event_ts >= pages.event_ts)))
-    group by 1, 2, 3, 4
+    group by 1, 2, 3, 4, 5
     """
     return client.query_athena(sql)
 
